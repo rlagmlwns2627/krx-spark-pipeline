@@ -1,0 +1,118 @@
+# 관례가 바뀜, version 불필요 및 공식 문서에서도 명시 지양
+# version: '3.8'
+
+# Airflow 공통 설정을 앵커로 정의 (중복 방지)
+x-airflow-common: &airflow-common
+  build: ./airflow
+  env_file: .env
+  environment:
+    # SQLite 대신 PostgreSQL을 메타데이터 DB로 사용
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    # .env의 POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB 참조
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+    # 기본 예제 DAG 숨김
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    ##
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+    AIRFLOW__LOGGING__REMOTE_LOGGING: 'false'
+    AIRFLOW__CORE__HOSTNAME_CALLABLE: 'airflow.utils.net.get_host_ip_address'
+  volumes:
+    # 로컬 dags 폴더를 컨테이너와 동기화 (파일 수정 즉시 반영)
+    - ./airflow/dags:/opt/airflow/dags
+    # 수집 로직을 컨테이너에서도 사용할 수 있도록 마운트
+    - ./collectors:/opt/airflow/collectors
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  # Airflow 메타데이터 저장용 DB
+  postgres:
+    image: postgres:15
+    container_name: krx-postgres
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # PostgreSQL이 실제로 쿼리를 받을 준비가 됐는지 확인
+    # depends_on의 condition: service_healthy와 함께 사용
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      retries: 5
+
+  # DB 초기화 + 어드민 유저 생성 (최초 1회만 실행 후 종료)
+  # Airflow 2.9.1부터 db init이 deprecated되고 db migrate가 공식 권장 명령어 지정
+  # bash -c "airflow db init && >> bash -c "airflow db migrate &&
+  airflow-init:
+    <<: *airflow-common
+    container_name: krx-airflow-init
+    restart: "no"
+    command: >
+      bash -c "airflow db migrate &&
+      airflow users create
+      --username ${AIRFLOW_ADMIN_USERNAME}
+      --password ${AIRFLOW_ADMIN_PASSWORD}
+      --firstname ${AIRFLOW_ADMIN_FIRSTNAME}
+      --lastname ${AIRFLOW_ADMIN_LASTNAME}
+      --role Admin
+      --email ${AIRFLOW_ADMIN_EMAIL}"
+
+  # Airflow 웹 UI (localhost:8080)
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: krx-airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      - airflow-init
+
+  # DAG 스케줄 실행 담당
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: krx-airflow-scheduler
+    command: scheduler
+    depends_on:
+      - airflow-init
+
+  # S3 KRX 데이터 처리용 PySpark 컨테이너
+  # krx_transform: S3 읽기 → 이동평균/등락률 계산 → S3 Parquet 저장
+  pyspark:
+    build: ./spark
+    container_name: krx-pyspark
+    env_file: .env
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+    volumes:
+      - ./spark:/opt/spark/jobs
+    command: tail -f /dev/null
+
+  # >>> localstack community edition 서비스 종료로 인한 실제 AWS 활용으로 각주처리
+  ## AWS S3를 로컬에서 흉내내는 서비스
+  ## SERVICES: s3 만 활성화 (불필요한 서비스 제외로 가볍게 유지)
+  #localstack:
+  #  image: localstack/localstack:3.4
+  #  container_name: krx-localstack
+  #  ports:
+  #    - "4566:4566"
+  #  environment:
+  #    SERVICES: s3
+  #    DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+  #    PERSISTENCE: 1
+  #  volumes:
+  #    # Docker Named Volume 대신 로컬 폴더 직접 마운트
+  #    # ./localstack_data 폴더에 S3 데이터가 실제 파일로 저장됨
+  #    # 컨테이너가 삭제(down)되어도 데이터 보존
+  #    # - localstack_data:/var/lib/localstack
+  #    - ./localstack_data:/var/lib/localstack
+
+volumes:
+  postgres_data:
+  # localstack_data는 로컬 폴더 직접 마운트로 변경
+  # localstack_data:

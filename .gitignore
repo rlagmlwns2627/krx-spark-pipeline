@@ -1,0 +1,15 @@
+# AWS 액세스 키 (절대 커밋 금지)
+krx-pipeline-user_accessKeys.csv
+
+# 환경변수 (민감 정보 포함)
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# 로그 파일
+*.log
+
+# Parquet 샘플 (로컬 백업용, Git 제외)
+*.parquet
