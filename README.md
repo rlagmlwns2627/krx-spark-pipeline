@@ -53,9 +53,9 @@ krx-spark-pipeline/
 
 위 프로젝트는 **Airflow 수집 → PySpark 변환 → S3 Parquet 적재까지 완료**된 상태로 잠시 중단..
 
-추후 `dbt-snowflake` 프리티어 어댑터를 학습 및 연동하여 모델링 단계를 마무리할 예정
-비용 방지를 위해 운영 중인 S3 버킷은 삭제 예정이며, 버킷 구조와 Parquet 샘플은 `image/` 폴더 및 로컬 백업으로 보관
-재개 시 본 README와 백업 자료 참고 예정
+- 추후 `dbt-snowflake` 프리티어 어댑터를 학습 및 연동하여 모델링 단계를 마무리할 예정
+- 비용 방지를 위해 운영 중인 S3 버킷은 삭제 예정이며, 버킷 구조와 Parquet 샘플은 `image/` 폴더 및 로컬 백업으로 보관
+- 재개 시 본 README와 백업 자료 참고 예정
 
 ## Setup
 
