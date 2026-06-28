@@ -62,7 +62,8 @@ except Exception:
 
 # ── 4. 미처리 날짜만 추출
 # pandas: set(raw_dates) - set(processed_dates)에 해당
-pending_dates = sorted(raw_dates - processed_dates)
+raw_dates_normalized = [d.replace("-", "") for d in raw_dates]  # YYYY-MM-DD → YYYYMMDD 변환
+pending_dates = sorted(raw_dates_normalized - processed_dates)
 logger.info(f"미처리 날짜 {len(pending_dates)}개: {pending_dates}")
 
 if not pending_dates:
@@ -137,9 +138,8 @@ df_result = df \
 # pandas: df[df['date'].isin(pending_dates)].to_parquet(path)에 해당
 # partitionBy로 ticker별 폴더 분리 저장
 logger.info("S3에 Parquet 저장 중...")
-pending_dates_list = [d.replace("-", "") for d in pending_dates]  # YYYY-MM-DD → YYYYMMDD 변환
 
-df_to_save = df_result.filter(col("date").isin(pending_dates_list))
+df_to_save = df_result.filter(col("date").isin(pending_dates))
 logger.info(f"저장할 행 수: {df_to_save.count()}")
 
 df_to_save \
