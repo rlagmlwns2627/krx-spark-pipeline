@@ -55,12 +55,11 @@ krx-spark-pipeline/
 
 - 추후 `dbt-snowflake` 프리티어 어댑터를 학습 및 연동하여 모델링 단계를 마무리할 예정
 - 비용 방지를 위해 운영 중인 S3 버킷은 삭제 예정이며, 버킷 구조와 Parquet 샘플은 `image/` 폴더 및 로컬 백업으로 보관
-- 재개 시 본 README와 백업 자료 참고 예정
 
 ## Setup
 
 ```bash
-git clone https://github.com/<your-account>/krx-spark-pipeline.git
+git clone https://github.com/rlagmlwns2627/krx-spark-pipeline.git
 cd krx-spark-pipeline
 cp .env.example .env   # fill in AWS credentials and bucket names
 docker compose up -d
